@@ -1,0 +1,13 @@
+# Starting point; the level and the stubs for the MCP Adapter classes are set
+# when static analysis joins CI.
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+	level: 5
+	paths:
+		- guarded-mcp.php
+		- uninstall.php
+		- includes
+	scanFiles:
+		- guarded-mcp.php

@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/wp-env.json",
+	"core": null,
+	"phpVersion": "8.3",
+	"plugins": [
+		"https://downloads.wordpress.org/plugin/mcp-adapter.0.7.1.zip",
+		"."
+	],
+	"themes": [
+		"https://downloads.wordpress.org/theme/twentytwentyone.zip"
+	],
+	"config": {
+		"WP_ENVIRONMENT_TYPE": "local"
+	},
+	"lifecycleScripts": {
+		"afterStart": "npx wp-env run cli wp theme activate twentytwentyone"
+	}
+}

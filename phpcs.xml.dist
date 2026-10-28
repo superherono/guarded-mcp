@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<ruleset name="Guarded MCP">
+	<description>WordPress and WordPress VIP coding standards for Guarded MCP.</description>
+
+	<file>.</file>
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="parallel" value="8"/>
+	<arg value="sp"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.9"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="WordPress-VIP-Go"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="guarded-mcp"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="guarded_mcp"/>
+				<element value="GUARDED_MCP"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>
