@@ -242,7 +242,7 @@ add_action(
 						return $result;
 					}
 
-					$checked = guarded_mcp_menu_check_model( $model, $target, $warnings );
+					$checked = guarded_mcp_menu_check_model( $model, $target );
 					if ( is_wp_error( $checked ) ) {
 						return $checked;
 					}

@@ -63,7 +63,7 @@ function guarded_mcp_bot_login() {
 }
 
 /**
- * Bot role for MCP access, WITHOUT unfiltered_html.
+ * Create or re-sync the bot role for MCP access, WITHOUT unfiltered_html. Runs on init.
  *
  * Defined in code (not only via wp-cli): portable, a guaranteed-correct cap
  * set, moves with the plugin. On single-site Editor/Admin have unfiltered_html —
@@ -73,35 +73,35 @@ function guarded_mcp_bot_login() {
  * Idempotent: created once; bump $version when guarded_mcp_bot_caps() changes.
  * A sync also removes caps the role should not have, so a cap taken out of the
  * list is taken off existing sites too.
+ *
+ * @return void
  */
-add_action(
-	'init',
-	function () {
-		$role_slug = 'guarded_mcp_bot';
-		$version   = '1'; // bump when guarded_mcp_bot_caps() changes
-		$caps      = guarded_mcp_bot_caps();
+function guarded_mcp_sync_bot_role() {
+	$role_slug = 'guarded_mcp_bot';
+	$version   = '1'; // Bump when guarded_mcp_bot_caps() changes.
+	$caps      = guarded_mcp_bot_caps();
 
-		if ( ! get_role( $role_slug ) ) {
-			add_role( $role_slug, 'Guarded MCP Bot', $caps );
-			update_option( 'guarded_mcp_role_version', $version );
-			return;
-		}
-
-		if ( get_option( 'guarded_mcp_role_version' ) !== $version ) {
-			$role = get_role( $role_slug );
-			foreach ( array_keys( $role->capabilities ) as $cap ) {
-				if ( empty( $caps[ $cap ] ) ) {
-					$role->remove_cap( $cap );
-				}
-			}
-			$role->remove_cap( 'unfiltered_html' ); // just in case
-			foreach ( $caps as $cap => $grant ) {
-				$role->add_cap( $cap, $grant );
-			}
-			update_option( 'guarded_mcp_role_version', $version );
-		}
+	$role = get_role( $role_slug );
+	if ( ! $role ) {
+		add_role( $role_slug, 'Guarded MCP Bot', $caps ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.custom_role_add_role -- Not a VIP-hosted plugin; the role is created once and re-synced by version.
+		update_option( 'guarded_mcp_role_version', $version );
+		return;
 	}
-);
+
+	if ( get_option( 'guarded_mcp_role_version' ) !== $version ) {
+		foreach ( array_keys( $role->capabilities ) as $cap ) {
+			if ( empty( $caps[ $cap ] ) ) {
+				$role->remove_cap( $cap );
+			}
+		}
+		$role->remove_cap( 'unfiltered_html' ); // Just in case.
+		foreach ( $caps as $cap => $grant ) {
+			$role->add_cap( $cap, $grant );
+		}
+		update_option( 'guarded_mcp_role_version', $version );
+	}
+}
+add_action( 'init', 'guarded_mcp_sync_bot_role' );
 
 /**
  * The bot user, if it exists and is safe to act as.
@@ -154,7 +154,7 @@ function guarded_mcp_bot_user() {
  */
 function guarded_mcp_get_token() {
 	$token = get_option( 'guarded_mcp_token' );
-	if ( ! $token ) {
+	if ( ! is_string( $token ) || '' === $token ) {
 		$token = wp_generate_password( 48, false, false );
 		update_option( 'guarded_mcp_token', $token, false );
 	}
@@ -162,4 +162,9 @@ function guarded_mcp_get_token() {
 }
 
 // Ensure the token exists (so it can be read via `wp option get`).
-add_action( 'init', 'guarded_mcp_get_token' );
+add_action(
+	'init',
+	function () {
+		guarded_mcp_get_token();
+	}
+);

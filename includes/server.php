@@ -29,6 +29,38 @@ function guarded_mcp_server_abilities() {
 	return array_values( array_unique( (array) apply_filters( 'guarded_mcp_server_abilities', array() ) ) );
 }
 
+/**
+ * Transport permission of the custom server: the token, then the bot.
+ *
+ * Runs before every request to /wp-json/guarded-mcp/v1/mcp. The token from the
+ * URL is compared with hash_equals(); on a match the request continues as the
+ * bot user, and only if guarded_mcp_bot_user() finds it safe (ARCHITECTURE.md,
+ * invariant 5). The adapter turns a WP_Error into a refusal.
+ *
+ * @param WP_REST_Request $request Request to the MCP endpoint.
+ * @return true|WP_Error
+ */
+function guarded_mcp_server_permission( WP_REST_Request $request ) {
+	$provided = $request->get_param( 'token' );
+	$provided = is_string( $provided ) ? $provided : '';
+
+	if ( '' === $provided || ! hash_equals( guarded_mcp_get_token(), $provided ) ) {
+		return new WP_Error(
+			'guarded_mcp_bad_token',
+			__( 'Invalid or missing MCP token.', 'guarded-mcp' ),
+			array( 'status' => 401 )
+		);
+	}
+
+	$bot = guarded_mcp_bot_user();
+	if ( is_wp_error( $bot ) ) {
+		return $bot;
+	}
+
+	wp_set_current_user( $bot->ID );
+	return true;
+}
+
 add_action(
 	'mcp_adapter_init',
 	function ( $adapter ) {
@@ -47,28 +79,9 @@ add_action(
 			\WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler::class,
 			\WP\MCP\Infrastructure\Observability\NullMcpObservabilityHandler::class,
 			guarded_mcp_server_abilities(),
-			array(), // resources
-			array(), // prompts
-			function ( \WP_REST_Request $request ) {
-				$provided = (string) $request->get_param( 'token' );
-				$expected = guarded_mcp_get_token();
-
-				if ( '' === $provided || ! is_string( $expected ) || ! hash_equals( $expected, $provided ) ) {
-					return new WP_Error(
-						'guarded_mcp_bad_token',
-						__( 'Invalid or missing MCP token.', 'guarded-mcp' ),
-						array( 'status' => 401 )
-					);
-				}
-
-				$bot = guarded_mcp_bot_user();
-				if ( is_wp_error( $bot ) ) {
-					return $bot;
-				}
-
-				wp_set_current_user( $bot->ID );
-				return true;
-			}
+			array(), // Resources.
+			array(), // Prompts.
+			'guarded_mcp_server_permission'
 		);
 	}
 );

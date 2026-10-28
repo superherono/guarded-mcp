@@ -51,10 +51,12 @@ function guarded_mcp_lint_file( $file ) {
 		);
 	}
 
-	$code = file_get_contents( $file );
+	$code = (string) file_get_contents( $file ); // phpcs:ignore WordPressVIPMinimum.Performance.FetchingRemoteData.FileGetContentsUnknown -- Local PHP file to lint.
 
 	try {
-		token_get_all( $code, TOKEN_PARSE );
+		// Parsing is the check: a syntax error throws.
+		$tokens = token_get_all( $code, TOKEN_PARSE );
+		unset( $tokens );
 		return array(
 			'file'    => $file,
 			'ok'      => true,

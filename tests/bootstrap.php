@@ -16,7 +16,7 @@ require_once $guarded_mcp_root . '/vendor/autoload.php';
 
 $guarded_mcp_tests_dir = getenv( 'WP_PHPUNIT__DIR' );
 if ( ! $guarded_mcp_tests_dir || ! is_dir( $guarded_mcp_tests_dir ) ) {
-	fwrite( STDERR, "wp-phpunit not found: run `composer install` first.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+	fwrite( STDERR, "wp-phpunit not found: run `composer install` first.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_fwrite -- CLI bootstrap, before WordPress loads.
 	exit( 1 );
 }
 

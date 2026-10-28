@@ -2,8 +2,8 @@
 /**
  * Shared helpers for the blog post abilities.
  *
- * get-post / create-post / update-post are deliberately separate from the page
- * abilities rather than a `post_type` switch on them:
+ * The get-post, create-post and update-post abilities are deliberately separate
+ * from the page abilities rather than a `post_type` switch on them:
  *  - a forgotten switch would silently create a page instead of an article;
  *  - articles carry fields a page doesn't (category, cover image, excerpt,
  *    language), so the schemas differ;

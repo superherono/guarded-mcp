@@ -178,7 +178,7 @@ function guarded_mcp_allowed_html() {
 /**
  * Run KSES over one parsed block and its inner blocks.
  *
- * filter_block_kses() in core filters only block attributes, so the HTML of
+ * Core's filter_block_kses() filters only block attributes, so the HTML of
  * the block (innerContent: the markup around and between inner blocks) is
  * filtered here with wp_kses(). Container blocks split their wrapper into an
  * opening and a closing chunk; wp_kses() handles each chunk on its own.
@@ -259,6 +259,6 @@ function guarded_mcp_save_post_raw( $postarr ) {
 	$result = empty( $postarr['ID'] )
 		? wp_insert_post( $postarr, true )
 		: wp_update_post( $postarr, true );
-	kses_init(); // restore KSES filters to the correct state for the current user
+	kses_init(); // Restore KSES filters to the correct state for the current user.
 	return $result;
 }

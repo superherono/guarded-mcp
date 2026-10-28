@@ -25,6 +25,14 @@
 		</properties>
 	</rule>
 
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="guarded_mcp_edit_menus"/>
+			</property>
+		</properties>
+	</rule>
+
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
@@ -32,5 +40,12 @@
 				<element value="GUARDED_MCP"/>
 			</property>
 		</properties>
+		<!-- Tests define WordPress test constants and PHPUnit test classes. -->
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!-- PHPUnit finds tests by the *Test.php suffix, not by class-*.php names. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>/tests/*</exclude-pattern>
 	</rule>
 </ruleset>

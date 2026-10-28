@@ -151,7 +151,7 @@ add_action(
 					$abilities = array();
 					if ( function_exists( 'wp_get_abilities' ) ) {
 						foreach ( wp_get_abilities() as $ability ) {
-							$name = is_object( $ability ) && method_exists( $ability, 'get_name' ) ? $ability->get_name() : '';
+							$name = $ability->get_name();
 							if ( 0 === strpos( $name, 'guarded-mcp/' ) ) {
 								$abilities[] = $name;
 							}

@@ -27,6 +27,31 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * The multipart field `file`, if it holds exactly one uploaded file.
+ *
+ * The value is request input, whatever the type hints of get_file_params()
+ * say: a client can leave keys out or send `file[]`, and then every key holds
+ * an array. So it is checked here as mixed.
+ *
+ * @param mixed $file Value of the `file` field.
+ * @return array{name:string,tmp_name:string,error:int}|null Null when missing or malformed.
+ */
+function guarded_mcp_media_upload_field( $file ) {
+	if ( ! is_array( $file ) || ! isset( $file['tmp_name'], $file['error'], $file['name'] ) ) {
+		return null;
+	}
+	if ( ! is_string( $file['tmp_name'] ) || ! is_string( $file['name'] ) || is_array( $file['error'] ) ) {
+		return null;
+	}
+
+	return array(
+		'name'     => $file['name'],
+		'tmp_name' => $file['tmp_name'],
+		'error'    => (int) $file['error'],
+	);
+}
+
 add_action(
 	'rest_api_init',
 	function () {
@@ -83,7 +108,7 @@ add_action(
 					}
 
 					$files = $request->get_file_params();
-					$file  = isset( $files['file'] ) ? $files['file'] : null;
+					$file  = guarded_mcp_media_upload_field( isset( $files['file'] ) ? $files['file'] : null );
 
 					// A body over post_max_size is dropped by PHP before WordPress
 					// runs: no fields, no file. Say so instead of "send a file".
@@ -95,7 +120,7 @@ add_action(
 						);
 					}
 
-					if ( ! is_array( $file ) || ! isset( $file['tmp_name'], $file['error'], $file['name'] ) || is_array( $file['tmp_name'] ) ) {
+					if ( null === $file ) {
 						return new WP_Error(
 							'guarded_mcp_upload_no_file',
 							__( 'Send one image as the multipart field "file" (curl -F "file=@path").', 'guarded-mcp' ),

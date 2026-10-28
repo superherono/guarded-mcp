@@ -30,6 +30,36 @@ jobs:
       - name: Lint
         run: find . -name '*.php' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
 
+  phpcs:
+    name: PHPCS (WordPress, VIP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+      - name: PHPCS
+        run: vendor/bin/phpcs
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
   phpunit:
     name: PHPUnit (wp-env)
     runs-on: ubuntu-latest
@@ -52,3 +82,4 @@ jobs:
         run: npx wp-env start
       - name: Run tests
         run: npm run test:php
+

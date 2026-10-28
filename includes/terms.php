@@ -2,10 +2,11 @@
 /**
  * Shared helpers for the taxonomy term abilities.
  *
- * get-terms / create-term / update-term work on a closed list of taxonomies
- * (guarded_mcp_term_taxonomies()): blog categories and tags by default, more
- * through the `guarded_mcp_term_taxonomies` filter. One `taxonomy` parameter
- * instead of an ability per taxonomy — they share every rule.
+ * The get-terms, create-term and update-term abilities work on a closed list of
+ * taxonomies (guarded_mcp_term_taxonomies()): blog categories and tags by
+ * default, more through the `guarded_mcp_term_taxonomies` filter. One
+ * `taxonomy` parameter instead of an ability per taxonomy — they share every
+ * rule.
  *
  * Polylang. Categories and tags are translated taxonomies: each language has its
  * own terms, linked into a translation group. A term created without a language
@@ -316,7 +317,7 @@ function guarded_mcp_term_fields_from_input( array $input, WP_Taxonomy $taxonomy
 			'name'       => $result['args']['name'],
 			'parent'     => array_key_exists( 'parent', $result['args'] ) ? $result['args']['parent'] : ( $term ? (int) $term->parent : 0 ),
 			'hide_empty' => false,
-			'exclude'    => $own_id ? array( $own_id ) : array(),
+			'exclude'    => $own_id ? array( $own_id ) : array(), // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude -- get_terms(), not a post query: excludes the term being edited from its own duplicate check.
 			'fields'     => 'ids',
 		);
 		if ( $translated ) {
@@ -343,7 +344,7 @@ function guarded_mcp_term_fields_from_input( array $input, WP_Taxonomy $taxonomy
 			'taxonomy'   => $taxonomy->name,
 			'slug'       => $result['args']['slug'],
 			'hide_empty' => false,
-			'exclude'    => $own_id ? array( $own_id ) : array(),
+			'exclude'    => $own_id ? array( $own_id ) : array(), // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude -- get_terms(), not a post query: excludes the term being edited from its own duplicate check.
 			'fields'     => 'ids',
 		);
 		if ( $translated ) {

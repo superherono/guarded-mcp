@@ -164,21 +164,26 @@ function guarded_mcp_media_cover_conflicts( $attachment_id, $language ) {
 		return array();
 	}
 
-	$post_ids = get_posts(
+	// WP_Query rather than get_posts(): "lang" is a query var Polylang adds, and
+	// get_posts() is typed with core's arguments only. The get_posts() defaults
+	// (no sticky posts, no SQL filters) are set explicitly.
+	$query = new WP_Query(
 		array(
-			'post_type'      => 'any',
-			'post_status'    => 'any',
-			'meta_key'       => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-			'meta_value'     => (int) $attachment_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-			'fields'         => 'ids',
-			'posts_per_page' => -1,
-			'no_found_rows'  => true,
-			'lang'           => '', // All languages: Polylang would filter by the current one.
+			'post_type'           => 'any',
+			'post_status'         => 'any',
+			'meta_key'            => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			'meta_value'          => (int) $attachment_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			'fields'              => 'ids',
+			'posts_per_page'      => -1, // phpcs:ignore WordPressVIPMinimum.Performance.NoPaging.posts_per_page_posts_per_page -- Bounded: posts that use one image as their cover.
+			'no_found_rows'       => true,
+			'ignore_sticky_posts' => true,
+			'suppress_filters'    => true, // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.SuppressFilters_suppress_filters -- As in get_posts(); "lang" below is what lifts Polylang's language filter.
+			'lang'                => '', // All languages: Polylang would filter by the current one.
 		)
 	);
 
 	$conflicts = array();
-	foreach ( $post_ids as $post_id ) {
+	foreach ( $query->posts as $post_id ) {
 		$post_language = (string) pll_get_post_language( $post_id, 'slug' );
 		if ( '' !== $post_language && $post_language !== $language ) {
 			$conflicts[] = (int) $post_id;
@@ -313,7 +318,7 @@ function guarded_mcp_media_ticket_key( $ticket ) {
 function guarded_mcp_media_open_tickets() {
 	global $wpdb;
 
-	$names = $wpdb->get_col(
+	$names = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Counts open upload tickets; must read the table, not the options cache.
 		$wpdb->prepare(
 			"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
 			$wpdb->esc_like( 'guarded_mcp_upload_' ) . '%'
@@ -408,9 +413,9 @@ function guarded_mcp_media_claim_ticket( $ticket ) {
 	}
 
 	$key = guarded_mcp_media_ticket_key( $ticket );
-	$raw = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $key ) );
+	$raw = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $key ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Atomic single-use ticket claim (ARCHITECTURE.md, invariant 7).
 
-	if ( null === $raw || 1 !== (int) $wpdb->delete( $wpdb->options, array( 'option_name' => $key ) ) ) {
+	if ( null === $raw || 1 !== (int) $wpdb->delete( $wpdb->options, array( 'option_name' => $key ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Atomic single-use ticket claim (ARCHITECTURE.md, invariant 7).
 		return $invalid;
 	}
 

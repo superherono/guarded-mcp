@@ -2,10 +2,10 @@
 /**
  * Shared helpers for the nav menu abilities.
  *
- * get-menus / update-menu work on the classic menus the theme renders: one per
- * theme location (guarded_mcp_menu_locations()) and, with Polylang, per
- * language. A menu is addressed by location + language, never by a free menu
- * ID, so MCP can only touch menus the site actually shows.
+ * The get-menus and update-menu abilities work on the classic menus the theme
+ * renders: one per theme location (guarded_mcp_menu_locations()) and, with
+ * Polylang, per language. A menu is addressed by location + language, never by
+ * a free menu ID, so MCP can only touch menus the site actually shows.
  *
  * Menus differ from pages in three ways, and the abilities are built around them:
  *  - no draft: a saved change shows on every page at once. update-menu is a dry
@@ -236,10 +236,10 @@ function guarded_mcp_menu_load( $menu_id ) {
 			'post_type'              => 'nav_menu_item',
 			'post__in'               => array_map( 'intval', $ids ),
 			'post_status'            => 'publish',
-			'numberposts'            => -1,
+			'numberposts'            => -1, // phpcs:ignore WordPressVIPMinimum.Performance.NoPaging.posts_per_page_numberposts -- Bounded: items of one menu.
 			'orderby'                => 'menu_order',
 			'order'                  => 'ASC',
-			'suppress_filters'       => true,
+			'suppress_filters'       => true, // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.SuppressFilters_suppress_filters -- Read items of every language; Polylang would hide some.
 			'update_post_term_cache' => false,
 		)
 	);
@@ -362,7 +362,7 @@ function guarded_mcp_menu_attach( array &$model, $key, $parent_key, $position ) 
 
 	array_splice( $siblings, $index, 0, array( $key ) );
 
-	$model['children'][ $parent_key ]      = $siblings;
+	$model['children'][ $parent_key ]     = $siblings;
 	$model['nodes'][ $key ]['parent_key'] = $parent_key;
 }
 
@@ -420,7 +420,14 @@ function guarded_mcp_menu_object_language( $kind, $id ) {
  * @return WP_Post|WP_Error|null Null when not found.
  */
 function guarded_mcp_menu_find_page( $path, $language ) {
-	$segments = array_values( array_filter( explode( '/', trim( (string) $path, '/' ) ), 'strlen' ) );
+	$segments = array_values(
+		array_filter(
+			explode( '/', trim( (string) $path, '/' ) ),
+			function ( $segment ) {
+				return '' !== $segment;
+			}
+		)
+	);
 
 	// "/en/services/" — a language prefix in front of the page path.
 	if ( $segments && in_array( $segments[0], guarded_mcp_menu_languages(), true ) ) {
@@ -449,8 +456,8 @@ function guarded_mcp_menu_find_page( $path, $language ) {
 			'post_type'        => 'page',
 			'name'             => sanitize_title( end( $segments ) ),
 			'post_status'      => array( 'publish', 'draft', 'pending', 'private', 'future' ),
-			'numberposts'      => -1,
-			'suppress_filters' => true,
+			'numberposts'      => -1, // phpcs:ignore WordPressVIPMinimum.Performance.NoPaging.posts_per_page_numberposts -- Bounded: pages with one slug across languages.
+			'suppress_filters' => true, // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.SuppressFilters_suppress_filters -- Search every language; the menu language is checked explicitly below.
 		)
 	);
 
@@ -480,8 +487,8 @@ function guarded_mcp_menu_find_post( $slug, $language ) {
 			'post_type'        => 'post',
 			'name'             => sanitize_title( trim( (string) $slug, '/' ) ),
 			'post_status'      => array( 'publish', 'draft', 'pending', 'private', 'future' ),
-			'numberposts'      => -1,
-			'suppress_filters' => true,
+			'numberposts'      => -1, // phpcs:ignore WordPressVIPMinimum.Performance.NoPaging.posts_per_page_numberposts -- Bounded: posts with one slug across languages.
+			'suppress_filters' => true, // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.SuppressFilters_suppress_filters -- Search every language; the menu language is checked explicitly below.
 		)
 	);
 
@@ -508,7 +515,14 @@ function guarded_mcp_menu_check_url( $url, $where ) {
 	$url = trim( (string) $url );
 
 	if ( '' === $url ) {
-		return new WP_Error( 'guarded_mcp_menu_url_empty', sprintf( __( '%s: a custom link needs "url".', 'guarded-mcp' ), $where ) );
+		return new WP_Error(
+			'guarded_mcp_menu_url_empty',
+			sprintf(
+				/* translators: %s: input path. */
+				__( '%s: a custom link needs "url".', 'guarded-mcp' ),
+				$where
+			)
+		);
 	}
 
 	if ( '#' === $url[0] || ( '/' === $url[0] && ( 1 === strlen( $url ) || '/' !== $url[1] ) ) ) {
@@ -550,7 +564,14 @@ function guarded_mcp_menu_check_url( $url, $where ) {
  */
 function guarded_mcp_menu_resolve_link( $link, $language, $fallbacks, array &$warnings, $where ) {
 	if ( ! is_array( $link ) || empty( $link['type'] ) ) {
-		return new WP_Error( 'guarded_mcp_menu_link_missing', sprintf( __( '%s: "link" needs a "type" (page, post, category or custom).', 'guarded-mcp' ), $where ) );
+		return new WP_Error(
+			'guarded_mcp_menu_link_missing',
+			sprintf(
+				/* translators: %s: input path. */
+				__( '%s: "link" needs a "type" (page, post, category or custom).', 'guarded-mcp' ),
+				$where
+			)
+		);
 	}
 
 	$type = (string) $link['type'];
@@ -620,7 +641,17 @@ function guarded_mcp_menu_resolve_link( $link, $language, $fallbacks, array &$wa
 		if ( $term instanceof WP_Term ) {
 			$term_language = guarded_mcp_menu_object_language( 'term', $term->term_id );
 			if ( '' !== $language && $term_language !== $language ) {
-				$error = new WP_Error( 'guarded_mcp_menu_link_language', sprintf( __( '%1$s: category "%2$s" is in language "%3$s", the menu is "%4$s".', 'guarded-mcp' ), $where, $term->name, $term_language, $language ) );
+				$error = new WP_Error(
+					'guarded_mcp_menu_link_language',
+					sprintf(
+						/* translators: 1: input path, 2: category name, 3: category language, 4: menu language. */
+						__( '%1$s: category "%2$s" is in language "%3$s", the menu is "%4$s".', 'guarded-mcp' ),
+						$where,
+						$term->name,
+						$term_language,
+						$language
+					)
+				);
 			} else {
 				return array(
 					'type'         => 'taxonomy',
@@ -651,9 +682,32 @@ function guarded_mcp_menu_resolve_link( $link, $language, $fallbacks, array &$wa
 			$object_language = guarded_mcp_menu_object_language( 'post', $object->ID );
 
 			if ( 'publish' !== $object->post_status ) {
-				$error = new WP_Error( 'guarded_mcp_menu_link_unpublished', sprintf( __( '%1$s: %2$s %3$d "%4$s" is not published (%5$s) — visitors would get a 404. Publish it first.', 'guarded-mcp' ), $where, $type, (int) $object->ID, $object->post_title, $object->post_status ) );
+				$error = new WP_Error(
+					'guarded_mcp_menu_link_unpublished',
+					sprintf(
+						/* translators: 1: input path, 2: object type, 3: object ID, 4: title, 5: post status. */
+						__( '%1$s: %2$s %3$d "%4$s" is not published (%5$s) — visitors would get a 404. Publish it first.', 'guarded-mcp' ),
+						$where,
+						$type,
+						(int) $object->ID,
+						$object->post_title,
+						$object->post_status
+					)
+				);
 			} elseif ( '' !== $language && $object_language !== $language ) {
-				$error = new WP_Error( 'guarded_mcp_menu_link_language', sprintf( __( '%1$s: %2$s %3$d "%4$s" is in language "%5$s", the menu is "%6$s".', 'guarded-mcp' ), $where, $type, (int) $object->ID, $object->post_title, $object_language, $language ) );
+				$error = new WP_Error(
+					'guarded_mcp_menu_link_language',
+					sprintf(
+						/* translators: 1: input path, 2: object type, 3: object ID, 4: title, 5: object language, 6: menu language. */
+						__( '%1$s: %2$s %3$d "%4$s" is in language "%5$s", the menu is "%6$s".', 'guarded-mcp' ),
+						$where,
+						$type,
+						(int) $object->ID,
+						$object->post_title,
+						$object_language,
+						$language
+					)
+				);
 			} else {
 				return array(
 					'type'         => 'post_type',
@@ -736,7 +790,14 @@ function guarded_mcp_menu_fill_node( array &$node, array $fields, array $target,
 	}
 
 	if ( 'custom' === $node['type'] && '' === $node['title'] ) {
-		return new WP_Error( 'guarded_mcp_menu_label_required', sprintf( __( '%s: a custom link needs a "label".', 'guarded-mcp' ), $where ) );
+		return new WP_Error(
+			'guarded_mcp_menu_label_required',
+			sprintf(
+				/* translators: %s: input path. */
+				__( '%s: a custom link needs a "label".', 'guarded-mcp' ),
+				$where
+			)
+		);
 	}
 
 	if ( array_key_exists( 'new_tab', $fields ) ) {
@@ -761,10 +822,9 @@ function guarded_mcp_menu_fill_node( array &$node, array $fields, array $target,
  *
  * @param string $key Model key.
  * @param string $ref Client reference.
- * @param array  $target Resolved menu target.
  * @return array
  */
-function guarded_mcp_menu_new_node( $key, $ref, array $target ) {
+function guarded_mcp_menu_new_node( $key, $ref ) {
 	return array(
 		'key'          => $key,
 		'ref'          => $ref,
@@ -843,6 +903,7 @@ function guarded_mcp_menu_node_label( array $node ) {
  * Apply a list of operations to the model. All-or-nothing: the first invalid
  * operation returns an error and nothing is written.
  *
+ * Operations and their fields:
  * add    — {op, link, label?, parent?, position?, ref?, new_tab?, title_attr?, rel?}
  * update — {op, item, label? link? new_tab? title_attr? rel? — at least one}
  * move   — {op, item, parent?, position?} — parent defaults to the current one
@@ -862,7 +923,14 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 		$where = 'operations[' . $i . ']';
 
 		if ( ! is_array( $op ) || empty( $op['op'] ) ) {
-			return new WP_Error( 'guarded_mcp_menu_op_invalid', sprintf( __( '%s: every operation needs "op" (add, update, move, remove).', 'guarded-mcp' ), $where ) );
+			return new WP_Error(
+				'guarded_mcp_menu_op_invalid',
+				sprintf(
+					/* translators: %s: input path. */
+					__( '%s: every operation needs "op" (add, update, move, remove).', 'guarded-mcp' ),
+					$where
+				)
+			);
 		}
 
 		$position = isset( $op['position'] ) ? max( 1, (int) $op['position'] ) : null;
@@ -870,18 +938,40 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 		switch ( $op['op'] ) {
 			case 'add':
 				if ( empty( $op['link'] ) ) {
-					return new WP_Error( 'guarded_mcp_menu_link_missing', sprintf( __( '%s: "add" needs a "link".', 'guarded-mcp' ), $where ) );
+					return new WP_Error(
+						'guarded_mcp_menu_link_missing',
+						sprintf(
+							/* translators: %s: input path. */
+							__( '%s: "add" needs a "link".', 'guarded-mcp' ),
+							$where
+						)
+					);
 				}
 
 				$ref = isset( $op['ref'] ) ? (string) $op['ref'] : '';
 				if ( '' !== $ref && ! preg_match( '/^[a-z][a-z0-9_-]{0,40}$/i', $ref ) ) {
-					return new WP_Error( 'guarded_mcp_menu_ref_invalid', sprintf( __( '%s: "ref" starts with a letter and holds letters, digits, "-" and "_".', 'guarded-mcp' ), $where ) );
+					return new WP_Error(
+						'guarded_mcp_menu_ref_invalid',
+						sprintf(
+							/* translators: %s: input path. */
+							__( '%s: "ref" starts with a letter and holds letters, digits, "-" and "_".', 'guarded-mcp' ),
+							$where
+						)
+					);
 				}
 				if ( '' === $ref ) {
 					$ref = 'new-' . ( ++$auto );
 				}
 				if ( isset( $model['nodes'][ 'r' . $ref ] ) ) {
-					return new WP_Error( 'guarded_mcp_menu_ref_taken', sprintf( __( '%1$s: ref "%2$s" is already used in this call.', 'guarded-mcp' ), $where, $ref ) );
+					return new WP_Error(
+						'guarded_mcp_menu_ref_taken',
+						sprintf(
+							/* translators: 1: input path, 2: ref. */
+							__( '%1$s: ref "%2$s" is already used in this call.', 'guarded-mcp' ),
+							$where,
+							$ref
+						)
+					);
 				}
 
 				$parent_key = 'root';
@@ -893,7 +983,7 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 				}
 
 				$key  = 'r' . $ref;
-				$node = guarded_mcp_menu_new_node( $key, $ref, $target );
+				$node = guarded_mcp_menu_new_node( $key, $ref );
 
 				$filled = guarded_mcp_menu_fill_node( $node, $op, $target, false, $warnings, $where );
 				if ( is_wp_error( $filled ) ) {
@@ -920,7 +1010,14 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 
 				$editable = array( 'label', 'link', 'new_tab', 'title_attr', 'rel' );
 				if ( ! array_intersect( array_keys( $op ), $editable ) ) {
-					return new WP_Error( 'guarded_mcp_nothing_to_update', sprintf( __( '%s: "update" needs at least one of: label, link, new_tab, title_attr, rel.', 'guarded-mcp' ), $where ) );
+					return new WP_Error(
+						'guarded_mcp_nothing_to_update',
+						sprintf(
+							/* translators: %s: input path. */
+							__( '%s: "update" needs at least one of: label, link, new_tab, title_attr, rel.', 'guarded-mcp' ),
+							$where
+						)
+					);
 				}
 
 				$before = guarded_mcp_menu_node_label( $model['nodes'][ $key ] );
@@ -941,7 +1038,14 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 					return $key;
 				}
 				if ( ! array_key_exists( 'parent', $op ) && null === $position ) {
-					return new WP_Error( 'guarded_mcp_nothing_to_update', sprintf( __( '%s: "move" needs "parent", "position" or both.', 'guarded-mcp' ), $where ) );
+					return new WP_Error(
+						'guarded_mcp_nothing_to_update',
+						sprintf(
+							/* translators: %s: input path. */
+							__( '%s: "move" needs "parent", "position" or both.', 'guarded-mcp' ),
+							$where
+						)
+					);
 				}
 
 				$parent_key = $model['nodes'][ $key ]['parent_key'];
@@ -953,7 +1057,14 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 				}
 
 				if ( in_array( $parent_key, guarded_mcp_menu_subtree( $model, $key ), true ) ) {
-					return new WP_Error( 'guarded_mcp_menu_parent_loop', sprintf( __( '%s: an item cannot move under itself or under one of its own children.', 'guarded-mcp' ), $where ) );
+					return new WP_Error(
+						'guarded_mcp_menu_parent_loop',
+						sprintf(
+							/* translators: %s: input path. */
+							__( '%s: an item cannot move under itself or under one of its own children.', 'guarded-mcp' ),
+							$where
+						)
+					);
 				}
 
 				guarded_mcp_menu_detach( $model, $key );
@@ -1002,7 +1113,15 @@ function guarded_mcp_menu_apply_operations( array &$model, array $operations, ar
 				break;
 
 			default:
-				return new WP_Error( 'guarded_mcp_menu_op_invalid', sprintf( __( '%1$s: unknown op "%2$s" (add, update, move, remove).', 'guarded-mcp' ), $where, (string) $op['op'] ) );
+				return new WP_Error(
+					'guarded_mcp_menu_op_invalid',
+					sprintf(
+						/* translators: 1: input path, 2: op. */
+						__( '%1$s: unknown op "%2$s" (add, update, move, remove).', 'guarded-mcp' ),
+						$where,
+						(string) $op['op']
+					)
+				);
 		}
 	}
 
@@ -1031,11 +1150,18 @@ function guarded_mcp_menu_model_from_input( array $nodes, array $target, $fallba
 		$path = $where . '[' . $i . ']';
 
 		if ( ! is_array( $in ) || empty( $in['link'] ) ) {
-			return new WP_Error( 'guarded_mcp_menu_link_missing', sprintf( __( '%s: every item needs a "link".', 'guarded-mcp' ), $path ) );
+			return new WP_Error(
+				'guarded_mcp_menu_link_missing',
+				sprintf(
+					/* translators: %s: input path. */
+					__( '%s: every item needs a "link".', 'guarded-mcp' ),
+					$path
+				)
+			);
 		}
 
 		$key  = 'r' . $path;
-		$node = guarded_mcp_menu_new_node( $key, '', $target );
+		$node = guarded_mcp_menu_new_node( $key, '' );
 
 		$fields = array_intersect_key( $in, array_flip( array( 'label', 'link', 'new_tab', 'title_attr', 'rel' ) ) );
 
@@ -1050,7 +1176,14 @@ function guarded_mcp_menu_model_from_input( array $nodes, array $target, $fallba
 
 		if ( ! empty( $in['children'] ) ) {
 			if ( ! is_array( $in['children'] ) ) {
-				return new WP_Error( 'guarded_mcp_menu_children_invalid', sprintf( __( '%s: "children" must be a list.', 'guarded-mcp' ), $path ) );
+				return new WP_Error(
+					'guarded_mcp_menu_children_invalid',
+					sprintf(
+						/* translators: %s: input path. */
+						__( '%s: "children" must be a list.', 'guarded-mcp' ),
+						$path
+					)
+				);
 			}
 			$result = guarded_mcp_menu_model_from_input( $in['children'], $target, $fallbacks, $warnings, $model, $key, $path . '.children' );
 			if ( is_wp_error( $result ) ) {
@@ -1079,10 +1212,26 @@ function guarded_mcp_menu_model_from_backup( array $nodes, array $items, array &
 		if ( 'post_type' === $node['type'] ) {
 			$object = get_post( (int) $node['object_id'] );
 			if ( ! $object || 'trash' === $object->post_status ) {
-				return new WP_Error( 'guarded_mcp_menu_backup_target_gone', sprintf( __( 'The backup links to %1$s %2$d, which no longer exists. Restore cannot rebuild that item.', 'guarded-mcp' ), $node['object'], (int) $node['object_id'] ) );
+				return new WP_Error(
+					'guarded_mcp_menu_backup_target_gone',
+					sprintf(
+						/* translators: 1: object type, 2: object ID. */
+						__( 'The backup links to %1$s %2$d, which no longer exists. Restore cannot rebuild that item.', 'guarded-mcp' ),
+						$node['object'],
+						(int) $node['object_id']
+					)
+				);
 			}
 		} elseif ( 'taxonomy' === $node['type'] && ! get_term( (int) $node['object_id'], $node['object'] ) instanceof WP_Term ) {
-			return new WP_Error( 'guarded_mcp_menu_backup_target_gone', sprintf( __( 'The backup links to %1$s %2$d, which no longer exists. Restore cannot rebuild that item.', 'guarded-mcp' ), $node['object'], (int) $node['object_id'] ) );
+			return new WP_Error(
+				'guarded_mcp_menu_backup_target_gone',
+				sprintf(
+					/* translators: 1: taxonomy, 2: term ID. */
+					__( 'The backup links to %1$s %2$d, which no longer exists. Restore cannot rebuild that item.', 'guarded-mcp' ),
+					$node['object'],
+					(int) $node['object_id']
+				)
+			);
 		}
 
 		$key = $id ? 'i' . $id : 'r' . uniqid( 'b', true );
@@ -1115,12 +1264,11 @@ function guarded_mcp_menu_model_from_backup( array $nodes, array $items, array &
  *
  * Errors: nesting deeper than the location renders.
  *
- * @param array $model    Menu model.
- * @param array $target   Resolved menu target.
- * @param array $warnings Collected warnings (for rules that warn rather than fail).
+ * @param array $model  Menu model.
+ * @param array $target Resolved menu target.
  * @return true|WP_Error
  */
-function guarded_mcp_menu_check_model( array $model, array $target, array &$warnings ) {
+function guarded_mcp_menu_check_model( array $model, array $target ) {
 	$max = (int) $target['config']['max_depth'];
 
 	foreach ( guarded_mcp_menu_walk( $model ) as $row ) {
@@ -1363,7 +1511,14 @@ function guarded_mcp_menu_write( $menu_id, array $items, array $model ) {
 			continue;
 		}
 		if ( ! wp_delete_post( $id, true ) ) {
-			return new WP_Error( 'guarded_mcp_menu_delete_failed', sprintf( __( 'Could not remove menu item %d.', 'guarded-mcp' ), $id ) );
+			return new WP_Error(
+				'guarded_mcp_menu_delete_failed',
+				sprintf(
+					/* translators: %d: menu item ID. */
+					__( 'Could not remove menu item %d.', 'guarded-mcp' ),
+					$id
+				)
+			);
 		}
 		++$counts['removed'];
 	}
@@ -1372,7 +1527,7 @@ function guarded_mcp_menu_write( $menu_id, array $items, array $model ) {
 		$menu = wp_get_nav_menu_object( $menu_id );
 
 		/** This action is documented in wp-includes/nav-menu.php — cache plugins purge on it. */
-		do_action( 'wp_update_nav_menu', $menu_id, array( 'menu-name' => $menu ? $menu->name : '' ) );
+		do_action( 'wp_update_nav_menu', $menu_id, array( 'menu-name' => $menu ? $menu->name : '' ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core hook, fired on purpose so cache plugins purge menus.
 	}
 
 	return $counts;
