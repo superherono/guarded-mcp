@@ -48,6 +48,30 @@ function guarded_mcp_health_files() {
 	return $files;
 }
 
+/**
+ * Path of a linted file as shown to the client: relative, never a server path.
+ *
+ * Relative to wp-content when the file is inside it (plugins/…, themes/…).
+ * A plugin or theme folder that lives elsewhere (a symlink, a custom
+ * WP_PLUGIN_DIR) is shown relative to the folder that holds it.
+ *
+ * @param string $file Absolute path.
+ * @return string
+ */
+function guarded_mcp_health_relative_path( $file ) {
+	$file  = wp_normalize_path( $file );
+	$roots = array( WP_CONTENT_DIR, dirname( GUARDED_MCP_DIR ), dirname( get_template_directory() ), dirname( get_stylesheet_directory() ) );
+
+	foreach ( $roots as $root ) {
+		$root = trailingslashit( wp_normalize_path( $root ) );
+		if ( 0 === strpos( $file, $root ) ) {
+			return substr( $file, strlen( $root ) );
+		}
+	}
+
+	return wp_basename( $file );
+}
+
 add_action(
 	'wp_abilities_api_init',
 	function () {
@@ -137,9 +161,8 @@ add_action(
 					$all_ok = true;
 					foreach ( guarded_mcp_health_files() as $file ) {
 						$result = guarded_mcp_lint_file( $file );
-						// Relative to wp-content: no server paths in the output.
 						$lint[] = array(
-							'file'    => ltrim( str_replace( array( wp_normalize_path( WP_CONTENT_DIR ), '\\' ), array( '', '/' ), wp_normalize_path( $result['file'] ) ), '/' ),
+							'file'    => guarded_mcp_health_relative_path( $result['file'] ),
 							'ok'      => $result['ok'],
 							'message' => $result['message'],
 						);

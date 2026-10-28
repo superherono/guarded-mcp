@@ -14,5 +14,12 @@
 	},
 	"lifecycleScripts": {
 		"afterStart": "npx wp-env run cli wp theme activate twentytwentyone"
+	},
+	"env": {
+		"tests": {
+			"config": {
+				"WP_ENVIRONMENT_TYPE": "production"
+			}
+		}
 	}
 }

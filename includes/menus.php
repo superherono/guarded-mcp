@@ -507,6 +507,11 @@ function guarded_mcp_menu_find_post( $slug, $language ) {
  * Allowed: http(s), mailto, tel, a root-relative path, an #anchor. Anything else
  * (javascript:, data:, protocol-relative //host) is rejected.
  *
+ * Control characters and backslashes are rejected anywhere in the URL.
+ * Browsers drop tabs and newlines from a URL and read "\" as "/", and
+ * esc_url() on save drops them too, so "/<tab>/host" would be stored and
+ * followed as "//host".
+ *
  * @param string $url   URL.
  * @param string $where Input path for the message.
  * @return string|WP_Error The trimmed URL.
@@ -525,12 +530,14 @@ function guarded_mcp_menu_check_url( $url, $where ) {
 		);
 	}
 
-	if ( '#' === $url[0] || ( '/' === $url[0] && ( 1 === strlen( $url ) || '/' !== $url[1] ) ) ) {
+	$plain = ! preg_match( '/[[:cntrl:]]/', $url ) && false === strpos( $url, '\\' );
+
+	if ( $plain && ( '#' === $url[0] || ( '/' === $url[0] && ( 1 === strlen( $url ) || '/' !== $url[1] ) ) ) ) {
 		return $url;
 	}
 
 	$scheme = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
-	if ( in_array( $scheme, array( 'http', 'https', 'mailto', 'tel' ), true ) ) {
+	if ( $plain && in_array( $scheme, array( 'http', 'https', 'mailto', 'tel' ), true ) ) {
 		return $url;
 	}
 

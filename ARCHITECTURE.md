@@ -60,6 +60,7 @@ The plugin exposes a WordPress site to a language model. A model can be wrong, a
 | `includes/media-upload.php` | `POST /wp-json/guarded-mcp/v1/media-upload`, step 2 of an image upload. **The only entry point that bypasses the MCP server**; it is authorised by a single-use ticket from `prepare-media-upload`. |
 | `includes/abilities/*.php` | One file per ability. Each registers itself and adds itself to the server filter. `category.php` registers the ability categories. |
 | `uninstall.php` | Removes the role, the menu capability and the plugin's options. Content and the bot user stay. |
+| `tests/` | PHPUnit tests (`*Test.php`, run in wp-env), PHPStan stubs for Polylang, Yoast SEO and the MCP Adapter. Not part of the installable plugin. |
 
 ## Load order
 
@@ -104,10 +105,10 @@ Every change must keep all eight.
 
 1. **Every ability has a `permission_callback` with a specific capability.** Writes to an existing object check the capability on that object (`edit_page`, `$id`).
 2. **All saved content first passes `guarded_mcp_validate_blocks()`.** It walks the block tree recursively: a block is allowed if its namespace is in `guarded_mcp_block_namespaces()` (empty by default) or it is one of the trusted core blocks. `core/html`, `core/shortcode` and `core/freeform` are never trusted, and the `core` namespace cannot be allowed as a whole. Raw HTML outside blocks is rejected.
-3. **KSES is bypassed only in `guarded_mcp_save_post_raw()`, only after rule 2, and HTML inside blocks is filtered there first.** The bot has no `unfiltered_html`. The allowlist decides which blocks may appear but does not look inside them, so before saving, `guarded_mcp_save_post_raw()` runs the content through core's `filter_block_content()` with the `post` rules (filter `guarded_mcp_allowed_html`): `<script>`, event handler attributes and `javascript:` URLs are removed from block HTML and block attributes. Core re-serialises the blocks, so the delimiters stay intact, which is why full-content KSES is switched off for this one save. Never save block content with a bare `wp_insert_post()` / `wp_update_post()`.
+3. **KSES is bypassed only in `guarded_mcp_save_post_raw()`, only after rule 2, and HTML inside blocks is filtered there first.** The bot has no `unfiltered_html`. The allowlist decides which blocks may appear but does not look inside them, so before saving, `guarded_mcp_save_post_raw()` runs the content through `guarded_mcp_kses_blocks()`: it parses the blocks, filters the HTML of every block with `wp_kses()` and its attribute values with core's `filter_block_kses_value()`, both with the `post` rules (filter `guarded_mcp_allowed_html`), and serialises the blocks again. `<script>`, event handler attributes and `javascript:` URLs are removed from block HTML and block attributes, and the delimiters stay intact, which is why full-content KSES is switched off for this one save. (Core's `filter_block_content()` filters only the attributes.) Never save block content with a bare `wp_insert_post()` / `wp_update_post()`.
 4. **`create-page` and `create-post` always create drafts. Publishing is a human action.** No ability changes a status. There is no delete ability for posts, terms or images, and the bot role has no `publish_*` or `delete_*` capabilities (`manage_categories` would let WordPress delete terms, but MCP does not expose it). Two exceptions, each closed by its own rule: an uploaded image is reachable by its URL at once (rule 7), and a saved menu is live at once (rule 8).
 5. **The token is compared with `hash_equals()`, and requests run as a dedicated low-privilege bot, never as an administrator.** `guarded_mcp_bot_user()` refuses a bot user that has `unfiltered_html`, `manage_options`, `edit_theme_options`, publishing or deleting capabilities, so a role added to the bot by mistake stops the server instead of widening it.
-6. **`site-health` takes no input.** It never accepts a path from the client.
+6. **`site-health` takes no input.** It never accepts a path from the client, and its output names files relative to `wp-content` (or to the folder that holds the plugin), never with a server path.
 7. **Files reach the site only through `media-upload.php` and only after `guarded_mcp_media_check_file()`.**
    - The route accepts a request only with a single-use ticket that `prepare-media-upload` issues to a caller who already has `upload_files`. The ticket grants nothing beyond that: it saves one image with the metadata fixed at issue time.
    - The ticket is claimed in the `permission_callback`, before the file is read. Claiming is atomic: the option row is deleted, and only one request sees one affected row. It goes straight to the table, bypassing the options API, so random tickets do not bloat the `notoptions` cache. Only a hash of the ticket is stored.
@@ -119,7 +120,7 @@ Every change must keep all eight.
    - The whole change is validated on an in-memory model before the first write.
    - A menu is addressed by theme location and language, never by a free menu ID, so only menus the site shows can be touched. Creating menus and assigning them to locations is not possible through MCP.
    - Removing an item deletes a `nav_menu_item` post. This is the only delete in the plugin, and it removes a link, never the page. An item with children is removed only with `with_children`.
-   - A link target must be a published page, post or category in the menu's language. A custom URL may only be `http(s)`, `mailto:`, `tel:`, a root-relative path or `#anchor`: no `javascript:`, no `//host`. Labels and attributes are plain text.
+   - A link target must be a published page, post or category in the menu's language. A custom URL may only be `http(s)`, `mailto:`, `tel:`, a root-relative path or `#anchor`: no `javascript:`, no `//host`. Control characters and backslashes are refused anywhere in the URL: browsers and `esc_url()` drop tabs and newlines, so `/<tab>/host` would become `//host`. Labels and attributes are plain text.
    - The capability is the plugin's own `guarded_mcp_edit_menus`, not `edit_theme_options`, which would also open the Customizer and widgets.
    - `preview_fallbacks` (a missing target becomes a placeholder link) is refused when `wp_get_environment_type()` is `production`: a copy with placeholders must never reach visitors.
 
@@ -165,7 +166,7 @@ Every change must keep all eight.
 | `guarded_mcp_block_namespaces` | Namespaces whose blocks are all allowed in content (your theme's or block plugin's) | none |
 | `guarded_mcp_trusted_core_blocks` | Trusted `core/*` blocks | 22 blocks: text, media, layout, quote, table, gallery, Query Loop |
 | `guarded_mcp_is_block_allowed` | Final allow or deny per block name | namespaces + trusted core |
-| `guarded_mcp_allowed_html` | HTML allowed inside blocks (`filter_block_content()` rules) | `wp_kses_allowed_html( 'post' )` |
+| `guarded_mcp_allowed_html` | HTML allowed inside blocks (`wp_kses()` rules) | `wp_kses_allowed_html( 'post' )` |
 | `guarded_mcp_term_taxonomies` | Taxonomies the term abilities may touch | `category`, `post_tag` |
 | `guarded_mcp_menu_locations` | Menu locations, their depth and a note on how the theme renders them | every classic location the theme registers, depth 2 |
 | `guarded_mcp_media_require_large` | Reject images too small for the `large` size | `true` |
@@ -209,3 +210,4 @@ Every change must keep all eight.
 - [ ] Files reach the site only through `media-upload.php` → `guarded_mcp_media_check_file()`; the type list has no SVG and nothing executable (rule 7).
 - [ ] `$version` in `access.php` is bumped if `guarded_mcp_bot_caps()` changed.
 - [ ] The site loads without a fatal error and `site-health` lists 15 abilities.
+- [ ] `npm run test:php`, `composer lint` and `composer analyse` pass. A changed rule has a test that fails when the rule is broken.

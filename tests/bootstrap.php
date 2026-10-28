@@ -37,7 +37,22 @@ tests_add_filter(
 			require_once $adapter;
 		}
 		require_once $guarded_mcp_root . '/guarded-mcp.php';
+
+		// A classic menu location for the menu tests, whatever the theme. It must
+		// exist before the abilities register: their input schema lists the
+		// locations at that moment.
+		add_action(
+			'after_setup_theme',
+			function () {
+				register_nav_menus( array( 'guarded_mcp_test' => 'Guarded MCP test location' ) );
+			}
+		);
 	}
 );
 
 require $guarded_mcp_tests_dir . '/includes/bootstrap.php';
+
+// Let the MCP Adapter create its servers now. It does that once, on the first
+// rest_api_init, and the transport hooks it adds must be in place before the
+// first test saves the hooks it restores after every test.
+rest_get_server();
