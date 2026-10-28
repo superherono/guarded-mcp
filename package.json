@@ -11,9 +11,11 @@
 		"env:start": "wp-env start",
 		"env:stop": "wp-env stop",
 		"env:clean": "wp-env clean all",
-		"test:php": "wp-env run tests-cli --env-cwd=wp-content/plugins/guarded-mcp vendor/bin/phpunit"
+		"test:php": "wp-env run tests-cli --env-cwd=wp-content/plugins/guarded-mcp vendor/bin/phpunit",
+		"test:e2e": "playwright test --config tests/e2e/playwright.config.js"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.64.1",
 		"@wordpress/env": "^11.17.0"
 	}
 }

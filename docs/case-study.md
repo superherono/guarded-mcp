@@ -74,6 +74,7 @@ The design notes keep 11 rejected options with reasons. Four that show the think
 - The site's content workflow runs through it: agents save pages and articles as drafts, a human reviews and publishes. The site has 14 pages and 22 articles live in two languages (October 2026).
 - Every change goes through a checklist in the architecture notes: PHP lint, validated write path, capability check, backup before menu writes, capability version bump.
 - Before publishing, the plugin was checked on a clean WordPress 7.1 site against a live MCP client session: all 15 tools, and each invariant from the outside (bad tokens, blocked blocks, scripts inside blocks, SVG and disguised PHP uploads, image bombs, menu link schemes, a bot user with administrator rights).
+- CI runs PHPCS with the WordPress and WordPress VIP standards, PHPStan, PHPUnit and Playwright on every push. The tests were checked by breaking each guarded rule on purpose until a test failed. Writing them found two gaps, both fixed: a menu link written as `/`, a tab, `/host` passed the link check and was saved as `//host`; and `site-health` showed absolute server paths when the plugin folder sat outside `wp-content`.
 
 ## What I'd do differently
 

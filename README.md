@@ -119,7 +119,7 @@ A menu has no drafts or revisions: a saved change is live on every page at once.
 
 ## How AI is involved in development
 
-I develop this plugin with AI coding agents (Claude Code), and most of the code was written by an agent against a design I set. The trust boundary, the eight invariants, the rejected options and every check before a write are my decisions, written down in ARCHITECTURE.md before or alongside the code. Each change is reviewed against the checklist at the end of that file. PHPUnit tests for the invariants are being written by hand, without the agent.
+I develop this plugin with AI coding agents (Claude Code), and most of the code was written by an agent against a design I set. The trust boundary, the eight invariants, the rejected options and every check before a write are my decisions, written down in ARCHITECTURE.md before or alongside the code. Each change is reviewed against the checklist at the end of that file. The tests in `tests/` were written with the agent and checked by breaking each guarded rule on purpose until a test failed; tests for five of the invariants (permission checks, raw HTML refusal, drafts only, upload file checks, single-use upload links) are being written by hand, without the agent.
 
 ## Development
 
@@ -130,9 +130,13 @@ composer install
 npm install
 npm run env:start     # WordPress at http://localhost:8888 (admin / password)
 npm run test:php      # PHPUnit inside wp-env
+npx playwright install chromium
+npm run test:e2e      # Playwright: markup saved over MCP opens in the block editor without validation errors
+composer lint         # PHPCS: WordPress and WordPress VIP coding standards
+composer analyse      # PHPStan, level 5
 ```
 
-The development site runs the latest WordPress with MCP Adapter and the Twenty Twenty-One theme, which has classic menu locations. Coding standards and static analysis: `composer lint`, `composer analyse` (the code is being brought in line with both before they join CI).
+The development site runs the latest WordPress with MCP Adapter and the Twenty Twenty-One theme, which has classic menu locations. The PHPUnit site runs as `production` (`.wp-env.json`), so the refusals that apply only in production are tested too. CI runs all of the above and a PHP 7.4–8.4 syntax check on every push and pull request.
 
 ## License
 

@@ -60,7 +60,7 @@ The plugin exposes a WordPress site to a language model. A model can be wrong, a
 | `includes/media-upload.php` | `POST /wp-json/guarded-mcp/v1/media-upload`, step 2 of an image upload. **The only entry point that bypasses the MCP server**; it is authorised by a single-use ticket from `prepare-media-upload`. |
 | `includes/abilities/*.php` | One file per ability. Each registers itself and adds itself to the server filter. `category.php` registers the ability categories. |
 | `uninstall.php` | Removes the role, the menu capability and the plugin's options. Content and the bot user stay. |
-| `tests/` | PHPUnit tests (`*Test.php`, run in wp-env), PHPStan stubs for Polylang, Yoast SEO and the MCP Adapter. Not part of the installable plugin. |
+| `tests/` | PHPUnit tests (`*Test.php`, run in wp-env), Playwright tests in `tests/e2e/`, PHPStan stubs for Polylang, Yoast SEO and the MCP Adapter. Not part of the installable plugin. |
 
 ## Load order
 
@@ -210,4 +210,4 @@ Every change must keep all eight.
 - [ ] Files reach the site only through `media-upload.php` → `guarded_mcp_media_check_file()`; the type list has no SVG and nothing executable (rule 7).
 - [ ] `$version` in `access.php` is bumped if `guarded_mcp_bot_caps()` changed.
 - [ ] The site loads without a fatal error and `site-health` lists 15 abilities.
-- [ ] `npm run test:php`, `composer lint` and `composer analyse` pass. A changed rule has a test that fails when the rule is broken.
+- [ ] `npm run test:php`, `npm run test:e2e`, `composer lint` and `composer analyse` pass. A changed rule has a test that fails when the rule is broken.

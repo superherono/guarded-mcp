@@ -6,3 +6,6 @@
 *.log
 .DS_Store
 Thumbs.db
+/tests/e2e/.auth/
+/tests/e2e/artifacts/
+/tests/e2e/report/
